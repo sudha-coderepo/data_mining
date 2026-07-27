@@ -1,0 +1,10 @@
+# Ignore markdown documentation files
+*.md
+
+# Python caches and virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+.ipynb_checkpoints/
