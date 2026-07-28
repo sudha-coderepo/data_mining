@@ -31,6 +31,20 @@ except ImportError:
     print("Warning: scikit-learn is not installed. Metrics calculation will run in fallback mode.")
 
 def initialize_client():
+    use_vertex = os.environ.get("VERTEX_AI", "false").lower() == "true"
+    project_id = os.environ.get("GCP_PROJECT")
+    location = os.environ.get("GCP_LOCATION", "us-central1")
+    
+    if use_vertex:
+        print(f"Initializing Client using Google Cloud Vertex AI (Project: {project_id}, Location: {location})...")
+        if SDK_VERSION == "new":
+            return genai.Client(vertexai=True, project=project_id, location=location)
+        else:
+            print("Error: Vertex AI integration requires the modern 'google-genai' SDK.")
+            print("Please upgrade by running: pip install -U google-genai")
+            sys.exit(1)
+            
+    # Fallback to API Key
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         print("\n[!] Error: GEMINI_API_KEY environment variable not found.")
@@ -46,17 +60,11 @@ def initialize_client():
         genai.configure(api_key=api_key)
         return genai
 
-# Fallback models ordered by priority (based on active API models list)
+# Fallback models ordered by priority (supported on Google Cloud Vertex AI)
 FALLBACK_MODELS = [
-    "gemini-3.5-flash",
-    "gemini-3.5-flash-lite",
-    "gemini-2.5-flash-lite",
     "gemini-2.5-flash",
-    "gemini-flash-latest",
-    "gemini-flash-lite-latest",
-    "gemini-3.1-flash-lite",
-    "gemini-3-flash-preview",
-    "gemini-pro-latest"
+    "gemini-2.5-flash-lite",
+    "gemini-3.5-flash"
 ]
 
 def call_gemini(client, text):
@@ -206,9 +214,12 @@ def main():
             llm_categories.append("Other")
             processed_indices.append(i)
             
-        # Crucial: Enforce rate limit (maximum 15 RPM = 4 seconds per request)
-        # We sleep 4.2 seconds to stay safely under the limit
-        time.sleep(4.2)
+        # Enforce rate limits based on subscription tier
+        use_vertex = os.environ.get("VERTEX_AI", "false").lower() == "true"
+        if use_vertex:
+            time.sleep(0.05)  # Vertex AI paid tier supports high speed requests
+        else:
+            time.sleep(4.2)   # Free tier requires a 4.2s delay to avoid 429 errors
             
     # Subset of dataframe that was labeled
     labeled_df = df.iloc[processed_indices].copy()
