@@ -1,6 +1,9 @@
 # Ignore markdown documentation files
 *.md
 
+# Ignore local environment keys
+.env
+
 # Python caches and virtual environments
 __pycache__/
 *.py[cod]
