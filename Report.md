@@ -85,19 +85,19 @@ When evaluating the classical machine learning classifiers, we explicitly **avoi
 All models were evaluated on a **20% holdout test set (236 reviews)**.
 
 ### Task 1: Sentiment Classification (vs. User Ratings)
-| Model | Accuracy | Macro F1-Score | Weighted F1-Score |
-| :--- | :---: | :---: | :---: |
-| **Naive Bayes** | 83.47% | 30.33% | 75.96% |
-| **Logistic Regression** | **85.59%** | 51.16% | 81.52% |
-| **Random Forest** | 83.90% | 55.10% | 83.03% |
-| **LLM (Zero-Shot)** | 84.75% | **59.83%** | **83.94%** |
+| Model | Accuracy | Macro Precision | Macro Recall | Macro F1-Score | Weighted F1-Score |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Naive Bayes** | 83.47% | 27.82% | 33.33% | 30.33% | 75.96% |
+| **Logistic Regression** | **85.59%** | **70.68%** | 48.69% | 51.16% | 81.52% |
+| **Random Forest** | 83.90% | 56.08% | 59.66% | 55.10% | 83.03% |
+| **LLM (Zero-Shot)** | 84.75% | 58.13% | **68.58%** | **59.83%** | **83.94%** |
 
 ### Task 2: Theme/Complaint Classification (vs. LLM Targets)
-| Model | Accuracy | Macro F1-Score | Weighted F1-Score |
-| :--- | :---: | :---: | :---: |
-| **Naive Bayes** | 72.03% | 20.94% | 60.32% |
-| **Logistic Regression** | 76.27% | 32.72% | 68.96% |
-| **Random Forest** | **77.12%** | **46.81%** | **70.65%** |
+| Model | Accuracy | Macro Precision | Macro Recall | Macro F1-Score | Weighted F1-Score |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Naive Bayes** | 72.03% | 18.01% | 25.00% | 20.94% | 60.32% |
+| **Logistic Regression** | 76.27% | 62.81% | 31.96% | 32.72% | 68.96% |
+| **Random Forest** | **77.12%** | **91.28%** | **40.84%** | **46.81%** | **70.65%** |
 
 ---
 
