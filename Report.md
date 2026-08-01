@@ -103,13 +103,19 @@ All models were evaluated on a **20% holdout test set (236 reviews)**.
 
 ## 6. Visualizations
 
-Here are the performance comparison charts:
+Here are the performance comparison charts and confusion matrices:
 
 ### Sentiment Classification Metrics
 ![Sentiment Classification Comparison](sentiment_comparison.png)
 
 ### Theme/Complaint Classification Metrics
 ![Theme/Complaint Classification Comparison](category_comparison.png)
+
+### Sentiment Confusion Matrix (Random Forest)
+![Sentiment Confusion Matrix](sentiment_confusion.png)
+
+### Theme/Complaint Confusion Matrix (Random Forest)
+![Theme Confusion Matrix](category_confusion.png)
 
 ---
 

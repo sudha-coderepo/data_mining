@@ -128,10 +128,78 @@ def plot_category_metrics():
     plt.close()
     print(f"Saved category comparison plot to: {os.path.abspath(output_img)}")
 
+def plot_confusion_matrices():
+    import pickle
+    from sklearn.metrics import confusion_matrix
+    
+    csv_file = "preprocessed_reviews.csv"
+    matrix_file = "tfidf_matrix.pkl"
+    indices_file = "test_indices.pkl"
+    
+    if not (os.path.exists(csv_file) and os.path.exists(matrix_file) and os.path.exists(indices_file)):
+        print("Error: Missing required files to plot confusion matrices.")
+        return
+        
+    df = pd.read_csv(csv_file)
+    with open(indices_file, "rb") as f:
+        test_indices = pickle.load(f)
+    with open(matrix_file, "rb") as f:
+        tfidf_matrix = pickle.load(f)
+        
+    df_test = df.loc[test_indices]
+    X_test = tfidf_matrix[test_indices]
+    
+    # 1. Sentiment Confusion Matrix
+    if os.path.exists("sentiment_random_forest.pkl"):
+        with open("sentiment_random_forest.pkl", "rb") as f:
+            model = pickle.load(f)
+        y_pred = model.predict(X_test)
+        y_true = df_test['llm_sentiment']
+        
+        plt.figure(figsize=(6, 5))
+        classes = sorted(list(set(y_true)))
+        cm = confusion_matrix(y_true, y_pred, labels=classes)
+        
+        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=classes, yticklabels=classes, cbar=False)
+        plt.title("Sentiment Confusion Matrix\n(Random Forest on Holdout Test Set)", fontsize=12, fontweight='bold', pad=10)
+        plt.ylabel("True Label", fontsize=10)
+        plt.xlabel("Predicted Label", fontsize=10)
+        plt.tight_layout()
+        
+        output_img = "sentiment_confusion.png"
+        plt.savefig(output_img, dpi=300)
+        plt.close()
+        print(f"Saved sentiment confusion matrix to: {os.path.abspath(output_img)}")
+        
+    # 2. Theme Confusion Matrix
+    if os.path.exists("category_random_forest.pkl"):
+        with open("category_random_forest.pkl", "rb") as f:
+            model = pickle.load(f)
+        y_pred = model.predict(X_test)
+        y_true = df_test['llm_category']
+        
+        plt.figure(figsize=(8, 6))
+        classes = sorted(list(set(y_true)))
+        cm = confusion_matrix(y_true, y_pred, labels=classes)
+        
+        sns.heatmap(cm, annot=True, fmt='d', cmap='Purples', xticklabels=classes, yticklabels=classes, cbar=False)
+        plt.title("Theme Confusion Matrix\n(Random Forest on Holdout Test Set)", fontsize=12, fontweight='bold', pad=10)
+        plt.ylabel("True Label", fontsize=10)
+        plt.xlabel("Predicted Label", fontsize=10)
+        plt.xticks(rotation=45, ha='right')
+        plt.tight_layout()
+        
+        output_img = "category_confusion.png"
+        plt.savefig(output_img, dpi=300)
+        plt.close()
+        print(f"Saved theme confusion matrix to: {os.path.abspath(output_img)}")
+
 def main():
     print("Generating performance comparison charts...")
     plot_sentiment_metrics()
     plot_category_metrics()
+    print("Generating confusion matrix heatmaps...")
+    plot_confusion_matrices()
     print("\nPhase 6 Visualizations Generated Successfully!")
 
 if __name__ == "__main__":

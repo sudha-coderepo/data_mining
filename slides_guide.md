@@ -131,6 +131,7 @@ This document provides a slide-by-slide content draft, visual guidelines, and sp
   * Zero-shot LLM has the highest Macro F1 (59.83%), showing it handles the minority "Neutral" and "Negative" classes best.
   * Random Forest is the best classical model (55.10% Macro F1).
   * Naive Bayes suffers from the class imbalance, predicting "Positive" for almost everything, resulting in 0% recall for Negatives and Neutrals.
+  * **Visual Graphic**: Insert `sentiment_confusion.png` (Heatmap showing how Random Forest maps targets to predictions).
 
 ### Speaker Notes
 * **Speaker**: Member 1
@@ -153,6 +154,7 @@ This document provides a slide-by-slide content draft, visual guidelines, and sp
   * Random Forest is the strongest model for theme classification, with a Macro F1 of 46.81%.
   * The "Other" class dominates (170 reviews), making theme classification a highly imbalanced 5-class problem.
   * Classical models successfully learned theme associations (like detecting "battery" or "screen" as Product Quality issues) from character TF-IDF.
+  * **Visual Graphic**: Insert `category_confusion.png` (Heatmap showing class-specific true vs. predicted counts).
 
 ### Speaker Notes
 * **Speaker**: Member 2

@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, confusion_matrix
 
 def train_and_evaluate_task(X, y, task_name, model_save_prefix):
     print(f"\n==========================================")
@@ -31,24 +31,30 @@ def train_and_evaluate_task(X, y, task_name, model_save_prefix):
     nb_report = classification_report(y_test, y_pred_nb, zero_division=0)
     print("--- Naive Bayes Classification Report ---")
     print(nb_report)
+    print("--- Naive Bayes Confusion Matrix ---")
+    print(confusion_matrix(y_test, y_pred_nb))
     
     # 2. Logistic Regression
-    print("Training Logistic Regression...")
+    print("\nTraining Logistic Regression...")
     lr_model = LogisticRegression(max_iter=1000, random_state=42)
     lr_model.fit(X_train, y_train)
     y_pred_lr = lr_model.predict(X_test)
     lr_report = classification_report(y_test, y_pred_lr, zero_division=0)
     print("--- Logistic Regression Classification Report ---")
     print(lr_report)
+    print("--- Logistic Regression Confusion Matrix ---")
+    print(confusion_matrix(y_test, y_pred_lr))
     
     # 3. Random Forest
-    print("Training Random Forest...")
+    print("\nTraining Random Forest...")
     rf_model = RandomForestClassifier(n_estimators=100, random_state=42)
     rf_model.fit(X_train, y_train)
     y_pred_rf = rf_model.predict(X_test)
     rf_report = classification_report(y_test, y_pred_rf, zero_division=0)
     print("--- Random Forest Classification Report ---")
     print(rf_report)
+    print("--- Random Forest Confusion Matrix ---")
+    print(confusion_matrix(y_test, y_pred_rf))
     
     # Save the models
     models = {
