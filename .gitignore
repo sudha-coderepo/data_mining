@@ -1,5 +1,6 @@
-# Ignore markdown documentation files
+# Ignore markdown documentation files (except labeling README for annotators)
 *.md
+!labeling/README.md
 
 # Ignore local environment keys
 .env
