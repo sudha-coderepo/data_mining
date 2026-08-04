@@ -1,0 +1,15 @@
+{
+  "total_reviews": 1177,
+  "gold_size": 100,
+  "train_size": 861,
+  "val_size": 216,
+  "gold_llm_category_counts": {
+    "Other": 43,
+    "Product quality issue": 26,
+    "Feature request": 15,
+    "Price complaint": 13,
+    "Customer service issue": 3
+  },
+  "gold_sentiment_disagreement_count": 49,
+  "random_state": 42
+}
