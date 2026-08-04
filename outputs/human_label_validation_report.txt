@@ -1,0 +1,16 @@
+Human Label Validation Report
+==============================
+Input file: labeling/gold_labeling_completed.csv
+Status: PASSED
+
+Statistics:
+  submitted_rows: 100
+  complete_rows: 100
+  human_sentiment_counts: {'Positive': 70, 'Neutral': 16, 'Negative': 14}
+  human_category_counts: {'Other': 69, 'Product quality issue': 15, 'Price complaint': 7, 'Feature request': 6, 'Customer service issue': 2, 'Delivery issue': 1}
+  agreement_human_vs_star_sentiment: 0.86
+  agreement_human_vs_llm_sentiment: 0.62
+  agreement_human_vs_llm_category: 0.56
+
+Next step:
+  python scripts/merge_human_labels.py labeling/gold_labeling_completed.csv

@@ -5,3 +5,6 @@ google-genai
 matplotlib
 seaborn
 python-dotenv
+openpyxl
+streamlit
+plotly
