@@ -1,5 +1,6 @@
 """
 Evaluate models on human gold (Track A), validation stars (Track B), LLM distillation (Track C).
+Includes threshold-tuned Logistic Regression (Phase 1.4).
 
 Usage:
     python scripts/evaluation.py
@@ -31,7 +32,11 @@ from baselines import (
     predict_majority_category,
     predict_majority_sentiment,
 )
-from split_utils import HUMAN_GOLD_CSV, OUTPUTS_DIR, load_gold_indices, load_pickle, TRAIN_INDICES_PKL, VAL_INDICES_PKL
+from features import load_sentiment_matrix, load_text_matrix
+from split_utils import HUMAN_GOLD_CSV, OUTPUTS_DIR, load_pickle, TRAIN_INDICES_PKL, VAL_INDICES_PKL
+from threshold_utils import predict_with_thresholds, save_thresholds, tune_multiclass_thresholds
+
+THRESHOLD_CONFIG = OUTPUTS_DIR / "metrics" / "threshold_config.json"
 
 
 def calc_metrics(y_true, y_pred, model_name: str) -> dict:
@@ -91,6 +96,14 @@ def row_indices_for_gold(df: pd.DataFrame, gold_df: pd.DataFrame) -> list[int]:
     return [rid_to_idx[str(rid)] for rid in gold_df["review_id"].astype(str)]
 
 
+def tune_lr(model, X_val, y_val, task: str) -> dict:
+    proba = model.predict_proba(X_val)
+    classes = list(model.classes_)
+    thresholds = tune_multiclass_thresholds(y_val, proba, classes)
+    save_thresholds(THRESHOLD_CONFIG, task, thresholds)
+    return thresholds
+
+
 def evaluate_track(
     df: pd.DataFrame,
     X,
@@ -101,6 +114,8 @@ def evaluate_track(
     y_train_sentiment,
     y_train_category,
     include_llm: bool = False,
+    lr_thresholds: dict | None = None,
+    extra_models: list[tuple[str, str]] | None = None,
 ) -> pd.DataFrame:
     results = []
     y_true = df.loc[indices, y_true_col]
@@ -121,6 +136,18 @@ def evaluate_track(
             model = pickle.load(f)
         display = name.replace("_", " ").title()
         results.append(calc_metrics(y_true, model.predict(X_sub), display))
+        if name == "logistic_regression" and lr_thresholds is not None:
+            proba = model.predict_proba(X_sub)
+            tuned = predict_with_thresholds(proba, list(model.classes_), lr_thresholds)
+            results.append(calc_metrics(y_true, tuned, "Logistic Regression (Tuned)"))
+
+    if extra_models:
+        for path_name, display in extra_models:
+            p = ROOT / path_name
+            if p.exists():
+                with open(p, "rb") as f:
+                    model = pickle.load(f)
+                results.append(calc_metrics(y_true, model.predict(X_sub), display))
 
     if include_llm:
         llm_col = "llm_sentiment" if task == "sentiment" else "llm_category"
@@ -140,8 +167,8 @@ def main() -> None:
 
     df = pd.read_csv(ROOT / "preprocessed_reviews.csv", low_memory=False)
     gold_df = pd.read_csv(HUMAN_GOLD_CSV, low_memory=False)
-    with open(ROOT / "tfidf_matrix.pkl", "rb") as f:
-        X = pickle.load(f)
+    X_text = load_text_matrix(ROOT)
+    X_sent = load_sentiment_matrix(ROOT)
 
     train_idx = list(load_pickle(TRAIN_INDICES_PKL))
     val_idx = list(load_pickle(VAL_INDICES_PKL))
@@ -156,17 +183,26 @@ def main() -> None:
         df.loc[idx, "human_sentiment"] = gold_map.loc[rid, "human_sentiment"]
         df.loc[idx, "human_category"] = gold_map.loc[rid, "human_category"]
 
+    # Threshold tuning on validation (Phase 1.4)
+    with open(ROOT / "sentiment_logistic_regression.pkl", "rb") as f:
+        lr_sent = pickle.load(f)
+    with open(ROOT / "category_logistic_regression.pkl", "rb") as f:
+        lr_cat = pickle.load(f)
+    sent_thresholds = tune_lr(lr_sent, X_sent[val_idx], df.loc[val_idx, "sentiment"], "sentiment")
+    cat_thresholds = tune_lr(lr_cat, X_text[val_idx], df.loc[val_idx, "llm_category"], "category")
+    print(f"Saved thresholds: {THRESHOLD_CONFIG}")
+
     print("\n" + "=" * 60)
     print(" TRACK A — Human Gold (PRIMARY, n=100)")
     print("=" * 60)
 
     sent_a = evaluate_track(
-        df, X, gold_idx, "human_sentiment", "sentiment", "sentiment",
-        y_train_sent, y_train_cat, include_llm=True,
+        df, X_sent, gold_idx, "human_sentiment", "sentiment", "sentiment",
+        y_train_sent, y_train_cat, include_llm=True, lr_thresholds=sent_thresholds,
     )
     cat_a = evaluate_track(
-        df, X, gold_idx, "human_category", "category", "category",
-        y_train_sent, y_train_cat, include_llm=True,
+        df, X_text, gold_idx, "human_category", "category", "category",
+        y_train_sent, y_train_cat, include_llm=True, lr_thresholds=cat_thresholds,
     )
     print("\nSentiment (human gold):")
     print(sent_a[["Model", "Accuracy", "Macro_F1", "Weighted_F1"]].to_string(index=False))
@@ -178,38 +214,23 @@ def main() -> None:
     sent_a.to_csv(ROOT / "sentiment_metrics_comparison.csv", index=False)
     cat_a.to_csv(ROOT / "category_metrics_comparison.csv", index=False)
 
-    # Confusion matrices — best classical = Random Forest
     with open(ROOT / "sentiment_random_forest.pkl", "rb") as f:
         rf_sent = pickle.load(f)
     with open(ROOT / "category_random_forest.pkl", "rb") as f:
         rf_cat = pickle.load(f)
 
     y_true_s = df.loc[gold_idx, "human_sentiment"]
-    y_pred_s = rf_sent.predict(X[gold_idx])
+    y_pred_s = rf_sent.predict(X_sent[gold_idx])
     y_true_c = df.loc[gold_idx, "human_category"]
-    y_pred_c = rf_cat.predict(X[gold_idx])
+    y_pred_c = rf_cat.predict(X_text[gold_idx])
 
-    plot_confusion(
-        y_true_s, y_pred_s,
-        "Sentiment — Random Forest vs Human Gold",
-        figures_dir / "sentiment_confusion_gold.png",
-    )
-    plot_confusion(
-        y_true_c, y_pred_c,
-        "Theme — Random Forest vs Human Gold",
-        figures_dir / "category_confusion_gold.png",
-    )
+    plot_confusion(y_true_s, y_pred_s, "Sentiment — Random Forest vs Human Gold", figures_dir / "sentiment_confusion_gold.png")
+    plot_confusion(y_true_c, y_pred_c, "Theme — Random Forest vs Human Gold", figures_dir / "category_confusion_gold.png")
     plot_confusion(y_true_s, y_pred_s, "Sentiment — Random Forest vs Human Gold", ROOT / "sentiment_confusion.png")
     plot_confusion(y_true_c, y_pred_c, "Theme — Random Forest vs Human Gold", ROOT / "category_confusion.png")
 
-    plot_comparison(
-        sent_a, "Sentiment Model Comparison (Human Gold Ground Truth)",
-        figures_dir / "sentiment_comparison_gold.png",
-    )
-    plot_comparison(
-        cat_a, "Theme Model Comparison (Human Gold Ground Truth)",
-        figures_dir / "category_comparison_gold.png",
-    )
+    plot_comparison(sent_a, "Sentiment Model Comparison (Human Gold Ground Truth)", figures_dir / "sentiment_comparison_gold.png")
+    plot_comparison(cat_a, "Theme Model Comparison (Human Gold Ground Truth)", figures_dir / "category_comparison_gold.png")
     plot_comparison(sent_a, "Sentiment Model Comparison (Human Gold Ground Truth)", ROOT / "sentiment_comparison.png")
     plot_comparison(cat_a, "Theme Model Comparison (Human Gold Ground Truth)", ROOT / "category_comparison.png")
 
@@ -217,8 +238,8 @@ def main() -> None:
     print(" TRACK B — Validation vs Star Sentiment (n=216)")
     print("=" * 60)
     sent_b = evaluate_track(
-        df, X, val_idx, "sentiment", "sentiment", "sentiment",
-        y_train_sent, y_train_cat, include_llm=True,
+        df, X_sent, val_idx, "sentiment", "sentiment", "sentiment",
+        y_train_sent, y_train_cat, include_llm=True, lr_thresholds=sent_thresholds,
     )
     print(sent_b[["Model", "Accuracy", "Macro_F1", "Weighted_F1"]].to_string(index=False))
     sent_b.to_csv(metrics_dir / "track_b_sentiment_stars.csv", index=False)
@@ -227,12 +248,12 @@ def main() -> None:
     print(" TRACK C — Validation vs LLM Labels (distillation, n=216)")
     print("=" * 60)
     sent_c = evaluate_track(
-        df, X, val_idx, "llm_sentiment", "sentiment", "sentiment",
-        y_train_sent, y_train_cat,
+        df, X_sent, val_idx, "llm_sentiment", "sentiment", "sentiment",
+        y_train_sent, y_train_cat, lr_thresholds=sent_thresholds,
     )
     cat_c = evaluate_track(
-        df, X, val_idx, "llm_category", "category", "category",
-        y_train_sent, y_train_cat,
+        df, X_text, val_idx, "llm_category", "category", "category",
+        y_train_sent, y_train_cat, lr_thresholds=cat_thresholds,
     )
     print("\nSentiment vs LLM:")
     print(sent_c[["Model", "Accuracy", "Macro_F1", "Weighted_F1"]].to_string(index=False))

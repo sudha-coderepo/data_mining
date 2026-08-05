@@ -9,6 +9,7 @@ Run:
 from __future__ import annotations
 
 import pickle
+import sys
 from pathlib import Path
 
 import pandas as pd
@@ -17,6 +18,9 @@ import plotly.graph_objects as go
 import streamlit as st
 
 ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT / "scripts"))
+
+from features import load_vectorizer, transform_live  # noqa: E402
 METRICS = ROOT / "outputs" / "metrics"
 FIGURES = ROOT / "outputs" / "figures"
 
@@ -83,8 +87,7 @@ def load_metrics(name: str) -> pd.DataFrame:
 
 @st.cache_resource
 def load_models():
-    with open(ROOT / "tfidf_vectorizer.pkl", "rb") as f:
-        vectorizer = pickle.load(f)
+    vectorizer = load_vectorizer(ROOT)
     with open(ROOT / "sentiment_logistic_regression.pkl", "rb") as f:
         sentiment_model = pickle.load(f)
     with open(ROOT / "category_random_forest.pkl", "rb") as f:
@@ -243,6 +246,7 @@ def tab_after(df: pd.DataFrame):
     track_a_cat = load_metrics("track_a_category_gold.csv")
     track_b = load_metrics("track_b_sentiment_stars.csv")
     track_c_cat = load_metrics("track_c_category_llm.csv")
+    cv_gold = load_metrics("cv_human_gold.csv")
 
     c1, c2, c3, c4 = st.columns(4)
     lr_f1 = track_a_sent.loc[track_a_sent["Model"] == "Logistic Regression", "Macro_F1"]
@@ -263,6 +267,10 @@ def tab_after(df: pd.DataFrame):
         metrics_bar_chart(track_a_sent, "Sentiment — Human Labels as Ground Truth")
     with a2:
         metrics_bar_chart(track_a_cat, "Theme — Human Labels as Ground Truth")
+
+    if not cv_gold.empty:
+        st.markdown("#### 5-Fold CV on human gold (human-label training target)")
+        st.dataframe(cv_gold, use_container_width=True, hide_index=True)
 
     st.markdown("#### Before vs After — Macro F1 lift")
     b1, b2, b3 = st.columns(3)
@@ -330,9 +338,9 @@ def tab_after(df: pd.DataFrame):
         {
             "Stage": [
                 "Raw reviews", "Train split", "Validation", "Human gold (held out)",
-                "Char TF-IDF features", "Models trained",
+                "Word+char TF-IDF + rating features", "Models trained",
             ],
-            "Count": [1177, 861, 216, 100, 5000, 3],
+            "Count": [1177, 861, 216, 100, 13000, 3],
         }
     )
     st.dataframe(funnel_data, hide_index=True, use_container_width=True)
@@ -340,7 +348,7 @@ def tab_after(df: pd.DataFrame):
 
 def tab_predict():
     st.subheader("Live Prediction")
-    st.caption("Logistic Regression (sentiment) + Random Forest (theme) on character TF-IDF.")
+    st.caption("Logistic Regression (sentiment, text+rating) + Random Forest (theme, text).")
 
     try:
         vectorizer, sent_model, cat_model = load_models()
@@ -349,15 +357,16 @@ def tab_predict():
         return
 
     default = "Great product but shipping took two weeks and the box was damaged."
+    title = st.text_input("Review title (optional)", value="Mixed feelings")
     text = st.text_area("Enter review text", value=default, height=120)
+    rating = st.slider("Star rating", min_value=1, max_value=5, value=3)
 
     if st.button("Classify", type="primary"):
-        cleaned = clean_review_text(text)
-        X = vectorizer.transform([cleaned])
-        sent_pred = sent_model.predict(X)[0]
-        cat_pred = cat_model.predict(X)[0]
-        sent_proba = sent_model.predict_proba(X)[0]
-        cat_proba = cat_model.predict_proba(X)[0]
+        text_x, sent_x = transform_live(text, title, float(rating), vectorizer)
+        sent_pred = sent_model.predict(sent_x)[0]
+        cat_pred = cat_model.predict(text_x)[0]
+        sent_proba = sent_model.predict_proba(sent_x)[0]
+        cat_proba = cat_model.predict_proba(text_x)[0]
         sent_conf = float(sent_proba.max())
         cat_conf = float(cat_proba.max())
 
