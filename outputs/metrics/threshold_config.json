@@ -1,0 +1,13 @@
+{
+  "sentiment": {
+    "Negative": 0.30000000000000004,
+    "Neutral": 0.4,
+    "Positive": 0.5
+  },
+  "category": {
+    "Feature request": 0.4,
+    "Other": 0.30000000000000004,
+    "Price complaint": 0.2,
+    "Product quality issue": 0.35000000000000003
+  }
+}
